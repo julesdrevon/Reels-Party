@@ -198,6 +198,40 @@ function observeVideo() {
 reportUrlChange();
 observeVideo();
 
+// --- OVERLAY DE LECTURE (BYPASS AUTOPLAY FIREFOX) ---
+function showPlayOverlay(videoElement) {
+    if (document.getElementById('rp-play-overlay')) return;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'rp-play-overlay';
+    Object.assign(overlay.style, {
+        position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
+        backgroundColor: 'rgba(0,0,0,0.8)', zIndex: '9999999',
+        display: 'flex', flexDirection: 'column',
+        justifyContent: 'center', alignItems: 'center',
+        color: 'white', fontFamily: 'sans-serif', cursor: 'pointer'
+    });
+
+    overlay.innerHTML = `
+        <div style="font-size: 60px; margin-bottom: 20px;">▶️</div>
+        <h2>Lecture bloquée par le navigateur</h2>
+        <p>Cliquez n'importe où pour lancer la vidéo (Sécurité Firefox)</p>
+    `;
+
+    overlay.addEventListener('click', () => {
+        isProgrammaticAction = true;
+        videoElement.play().then(() => {
+            overlay.remove();
+        }).catch(err => {
+            console.error("Reels Party: Toujours bloqué par le navigateur", err);
+            overlay.remove(); // Retire l'overlay quoiqu'il arrive pour ne pas softlock
+        });
+        setTimeout(() => isProgrammaticAction = false, 500);
+    });
+
+    (document.body || document.documentElement).appendChild(overlay);
+}
+
 // 2. Écouter les ordres du background
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'GOTO_URL') {
@@ -229,7 +263,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     isProgrammaticAction = true;
     const main = findMainVideo();
     if (main && main.paused) {
-        main.play().catch(e => console.log("Reels Party: Auto-play bloqué par le navigateur", e));
+        main.play().catch(e => {
+            console.log("Reels Party: Auto-play bloqué par le navigateur", e);
+            showPlayOverlay(main);
+        });
     }
     setTimeout(() => isProgrammaticAction = false, 500);
   }
@@ -250,7 +287,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       isProgrammaticAction = true;
       const main = findMainVideo();
       if (main && main.paused) {
-          main.play().catch(e => console.log(e));
+          main.play().catch(e => {
+              console.log("Reels Party: Auto-play forcage bloqué", e);
+              showPlayOverlay(main);
+          });
       }
       setTimeout(() => isProgrammaticAction = false, 500);
     }
