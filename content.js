@@ -279,7 +279,7 @@ function renderUsersHUD(state) {
   if (!overlay) {
     overlay = document.createElement('div');
     overlay.id = 'reels-party-overlay';
-    document.body.appendChild(overlay);
+    (document.body || document.documentElement).appendChild(overlay);
   }
 
   // Vider et reconstruire

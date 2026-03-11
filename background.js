@@ -96,6 +96,11 @@ function connectSocket() {
 // Fonction utilitaire pour informer tous les popups ou content scripts de l'etat
 function broadcastState() {
   chrome.runtime.sendMessage({ type: 'STATE_UPDATE', state }).catch(() => {});
+  chrome.tabs.query({}, (tabs) => {
+    tabs.forEach(tab => {
+       chrome.tabs.sendMessage(tab.id, { type: 'STATE_UPDATE', state }).catch(() => {});
+    });
+  });
 }
 
 // Listener principal pour les actions recues du popup ou content script
