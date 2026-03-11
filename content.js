@@ -198,38 +198,54 @@ function observeVideo() {
 reportUrlChange();
 observeVideo();
 
-// --- OVERLAY DE LECTURE (BYPASS AUTOPLAY FIREFOX) ---
-function showPlayOverlay(videoElement) {
-    if (document.getElementById('rp-play-overlay')) return;
-
-    const overlay = document.createElement('div');
-    overlay.id = 'rp-play-overlay';
-    Object.assign(overlay.style, {
-        position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
-        backgroundColor: 'rgba(0,0,0,0.8)', zIndex: '9999999',
-        display: 'flex', flexDirection: 'column',
-        justifyContent: 'center', alignItems: 'center',
-        color: 'white', fontFamily: 'sans-serif', cursor: 'pointer'
-    });
-
-    overlay.innerHTML = `
-        <div style="font-size: 60px; margin-bottom: 20px;">▶️</div>
-        <h2>Lecture bloquée par le navigateur</h2>
-        <p>Cliquez n'importe où pour lancer la vidéo (Sécurité Firefox)</p>
-    `;
-
-    overlay.addEventListener('click', () => {
-        isProgrammaticAction = true;
+// --- GESTION AUTOPLAY SILENCIEUX (BYPASS FIREFOX) ---
+function attemptPlay(videoElement) {
+    isProgrammaticAction = true;
+    
+    // On essaie de jouer normalement (avec le son)
+    videoElement.play().catch(err => {
+        console.log("Reels Party: Auto-play avec son bloqué, tentative en muet...", err);
+        
+        // Firefox/Safari bloque : on passe la vidéo en sourdine pour forcer le lancement visuel !
+        videoElement.muted = true;
+        applyInstagramMuteState(true); // Gère les SVG natifs d'insta
+        
         videoElement.play().then(() => {
-            overlay.remove();
-        }).catch(err => {
-            console.error("Reels Party: Toujours bloqué par le navigateur", err);
-            overlay.remove(); // Retire l'overlay quoiqu'il arrive pour ne pas softlock
+            console.log("Reels Party: Lecture muette réussie. Affichage du bouton de son.");
+            showUnmuteButton(videoElement);
+        }).catch(err2 => {
+            console.error("Reels Party: Échec total de l'autoplay (même muet)", err2);
         });
-        setTimeout(() => isProgrammaticAction = false, 500);
+    });
+    
+    setTimeout(() => isProgrammaticAction = false, 500);
+}
+
+function showUnmuteButton(videoElement) {
+    if (document.getElementById('rp-unmute-btn')) return;
+
+    const btn = document.createElement('button');
+    btn.id = 'rp-unmute-btn';
+    btn.textContent = '🔇 Activer le son (Reels Party)';
+    Object.assign(btn.style, {
+        position: 'fixed', top: '100px', left: '50%', transform: 'translateX(-50%)',
+        backgroundColor: '#ff0050', color: 'white', padding: '10px 20px',
+        border: 'none', borderRadius: '25px', fontSize: '16px', fontWeight: 'bold',
+        cursor: 'pointer', zIndex: '9999999', boxShadow: '0 4px 10px rgba(0,0,0,0.5)',
+        transition: 'all 0.3s ease'
     });
 
-    (document.body || document.documentElement).appendChild(overlay);
+    btn.addEventListener('click', () => {
+        videoElement.muted = false;
+        applyInstagramMuteState(false);
+        // Si possible, on monte le volume localement
+        if (localStorage.getItem('reelsParty_volume')) {
+            videoElement.volume = parseFloat(localStorage.getItem('reelsParty_volume'));
+        }
+        btn.remove();
+    });
+
+    (document.body || document.documentElement).appendChild(btn);
 }
 
 // 2. Écouter les ordres du background
@@ -260,15 +276,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     isWaitingForOthers = false; // Désactive immédiatement le bouclier global
     
     // On force la lecture uniquement sur la vidéo visible principale
-    isProgrammaticAction = true;
     const main = findMainVideo();
     if (main && main.paused) {
-        main.play().catch(e => {
-            console.log("Reels Party: Auto-play bloqué par le navigateur", e);
-            showPlayOverlay(main);
-        });
+        attemptPlay(main);
     }
-    setTimeout(() => isProgrammaticAction = false, 500);
   }
 
   // --- RECEPTION DES ORDRES MANUELS PLAY/PAUSE DES AUTRES ---
@@ -284,15 +295,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'FORCE_PLAY') {
     console.log("Reels Party: Ordre de PLAY reçu des autres membres.");
     if (!isWaitingForOthers) { // On ne relance pas si on est encore en chargement synchro global
-      isProgrammaticAction = true;
       const main = findMainVideo();
       if (main && main.paused) {
-          main.play().catch(e => {
-              console.log("Reels Party: Auto-play forcage bloqué", e);
-              showPlayOverlay(main);
-          });
+          attemptPlay(main);
       }
-      setTimeout(() => isProgrammaticAction = false, 500);
     }
   }
 
