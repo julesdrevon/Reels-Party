@@ -1,4 +1,6 @@
-importScripts('socket.io.min.js');
+if (typeof importScripts === 'function') {
+  importScripts('socket.io.min.js');
+}
 
 let socket = null;
 const SERVER_URL_OFFICIAL = 'https://reelsparty.frohub.eu'; 

@@ -9,7 +9,7 @@
   },
   "background": {
     "service_worker": "background.js",
-    "scripts": ["background.js"]
+    "scripts": ["socket.io.min.js", "background.js"]
   },
   "browser_specific_settings": {
     "gecko": {

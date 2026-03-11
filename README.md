@@ -10,7 +10,7 @@ L'extension a besoin d'un petit serveur local pour permettre aux utilisateurs de
 1. Ouvre un terminal (Invite de commandes ou PowerShell).
 2. Va dans le dossier du serveur :
    ```bash
-   cd chemin\vers\tutorial.hello-world\server
+   cd chemin\vers\ReelsParty_Extension\server
    ```
 3. Installe les dépendances (la première fois uniquement) :
    ```bash
