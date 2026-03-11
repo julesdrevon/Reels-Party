@@ -2,6 +2,7 @@ let lastReportedUrl = location.href;
 let currentVideo = null;
 let isWaitingForOthers = false;
 let isProgrammaticAction = false; // Permet de distinguer un clic utilisateur d'un ordre de l'extension
+let hasUserInteractedThisSession = false;
 
 // Fonction de survie: verifier si l'extension a ete rafraichie
 function isContextValid() {
@@ -202,6 +203,12 @@ observeVideo();
 function attemptPlay(videoElement) {
     isProgrammaticAction = true;
     
+    // Si l'utilisateur a déjà cliqué dans le document, on a le droit d'utiliser le son !
+    if (hasUserInteractedThisSession) {
+        videoElement.muted = false;
+        applyInstagramMuteState(false);
+    }
+    
     // On essaie de jouer normalement (avec le son)
     videoElement.play().catch(err => {
         console.log("Reels Party: Auto-play avec son bloqué, tentative en muet...", err);
@@ -247,6 +254,18 @@ function showUnmuteButton(videoElement) {
 
     (document.body || document.documentElement).appendChild(btn);
 }
+
+// Capter le PREMIER clic naturel n'importe où sur la page pour valider l'interaction (Politique Autoplay)
+document.addEventListener('click', () => {
+    if (hasUserInteractedThisSession) return;
+    
+    console.log("Reels Party: Interaction globale détectée, déblocage de l'audio permanent pour la session.");
+    hasUserInteractedThisSession = true;
+    
+    // S'il y avait le bouton "Unmute", on le clique virtuellement pour nettoyer.
+    const btn = document.getElementById('rp-unmute-btn');
+    if (btn) btn.click();
+}, { passive: true });
 
 // 2. Écouter les ordres du background
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
