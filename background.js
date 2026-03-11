@@ -54,10 +54,26 @@ function connectSocket() {
 
   socket.on('play_all', () => {
     console.log('Tous les membres ont chargé la vidéo. Lecture synchronisée !');
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs[0] && tabs[0].id) {
-         chrome.tabs.sendMessage(tabs[0].id, { type: 'PLAY_VIDEO' });
-      }
+    chrome.tabs.query({}, (tabs) => {
+      tabs.forEach(tab => {
+         chrome.tabs.sendMessage(tab.id, { type: 'PLAY_VIDEO' }).catch(() => {});
+      });
+    });
+  });
+
+  socket.on('do_pause', () => {
+    chrome.tabs.query({}, (tabs) => {
+      tabs.forEach(tab => {
+         chrome.tabs.sendMessage(tab.id, { type: 'FORCE_PAUSE' }).catch(() => {});
+      });
+    });
+  });
+
+  socket.on('do_play', () => {
+    chrome.tabs.query({}, (tabs) => {
+      tabs.forEach(tab => {
+         chrome.tabs.sendMessage(tab.id, { type: 'FORCE_PLAY' }).catch(() => {});
+      });
     });
   });
 }
@@ -138,6 +154,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'VIDEO_READY') {
     if (state.inRoom) {
       socket.emit('video_ready', { roomCode: state.roomCode, url: message.url });
+    }
+  }
+
+  // --- ACTIONS MANUELLES PLAY/PAUSE ---
+  if (message.type === 'REQUEST_PAUSE') {
+    if (state.inRoom) {
+      socket.emit('sync_pause', { roomCode: state.roomCode });
+    }
+  }
+
+  if (message.type === 'REQUEST_PLAY') {
+    if (state.inRoom) {
+      socket.emit('sync_play', { roomCode: state.roomCode });
     }
   }
 

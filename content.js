@@ -1,6 +1,7 @@
 let lastReportedUrl = location.href;
 let currentVideo = null;
 let isWaitingForOthers = false;
+let isProgrammaticAction = false; // Permet de distinguer un clic utilisateur d'un ordre de l'extension
 
 // Fonction de survie: verifier si l'extension a ete rafraichie
 function isContextValid() {
@@ -50,12 +51,39 @@ setInterval(() => {
 
 // --- LOGIQUE DE LECTURE ET PAUSE SYNCHRONISÉE ---
 
-// Bloqueur global : empêche toute vidéo de démarrer si on attend les autres
-// On utilise `useCapture = true` pour intercepter l'évènement avant qu'il n'atteigne React/Instagram
 document.addEventListener('play', (e) => {
   if (isWaitingForOthers && isContextValid() && e.target.tagName === 'VIDEO') {
     e.target.pause();
     console.log("Reels Party: Action de lecture interceptée et bloquée globalement.");
+  }
+}, true);
+
+// Seuil max de confiance (en ms) permettant de considérer un "play/pause" comme venant d'un clic
+let lastUserInteractionTime = 0;
+document.addEventListener('pointerdown', () => lastUserInteractionTime = Date.now(), true);
+document.addEventListener('keydown', () => lastUserInteractionTime = Date.now(), true);
+
+// Détecte les vraies pauses manuelles de l'utilisateur
+document.addEventListener('pause', (e) => {
+  if (e.target.tagName !== 'VIDEO') return;
+  if (!isWaitingForOthers && !isProgrammaticAction && isContextValid()) {
+    // Est-ce qu'il y a eu un clic ou une touche clavier dans les 1000 dernières ms ?
+    if (Date.now() - lastUserInteractionTime < 1000) {
+      console.log("Reels Party: L'utilisateur a mis en pause.");
+      chrome.runtime.sendMessage({ type: 'REQUEST_PAUSE' }).catch(()=>console.warn("Erreur context"));
+    }
+  }
+}, true);
+
+// Détecte les vraies lectures manuelles de l'utilisateur
+document.addEventListener('play', (e) => {
+  if (e.target.tagName !== 'VIDEO') return;
+  if (!isWaitingForOthers && !isProgrammaticAction && isContextValid()) {
+    // Est-ce qu'il y a eu un clic ou une touche clavier dans les 1000 dernières ms ?
+    if (Date.now() - lastUserInteractionTime < 1000) {
+      console.log("Reels Party: L'utilisateur a relancé la vidéo.");
+      chrome.runtime.sendMessage({ type: 'REQUEST_PLAY' }).catch(()=>console.warn("Erreur context"));
+    }
   }
 }, true);
 
@@ -116,6 +144,16 @@ function observeVideo() {
 
       console.log("Reels Party: Vidéo principale identifiée. Prêt envoyé au serveur.");
       
+      // Restauration de l'audio si on a sauvegardé quelque chose au préalable
+      try {
+        const savedMuted = localStorage.getItem('reelsParty_muted');
+        const savedVolume = localStorage.getItem('reelsParty_volume');
+        if (savedMuted !== null) video.muted = savedMuted === 'true';
+        if (savedVolume !== null) video.volume = parseFloat(savedVolume);
+      } catch (e) {
+        console.warn("Reels Party: Impossible de restaurer le son", e);
+      }
+
       // On informe le serveur qu'on est prêt
       try {
           chrome.runtime.sendMessage({ type: 'VIDEO_READY', url: location.href });
@@ -138,6 +176,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       
       console.log("Reels Party: Redirection propre en cours vers la position de l'Hôte...");
       
+      // Sauvegarde de l'état du son actuel juste avant de recharger la page
+      try {
+        const v = findMainVideo();
+        if (v) {
+          localStorage.setItem('reelsParty_muted', v.muted);
+          localStorage.setItem('reelsParty_volume', v.volume);
+        }
+      } catch (e) { /* ignore */ }
+
       // La navigation via l'historique ou le DOM de React est bloquee ou instable sur ces sites.
       // Un rechargement est la maniere la plus fiable de synchroniser l'invite.
       window.location.assign(message.url);
@@ -148,11 +195,34 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.log("Reels Party: Autorisation de lecture reçue !");
     isWaitingForOthers = false; // Désactive immédiatement le bouclier global
     
-    // On force la lecture sur TOUTES les vidéos (la vidéo principale prendra le relai naturellement)
+    // On force la lecture uniquement sur la vidéo visible principale
+    isProgrammaticAction = true;
+    const main = findMainVideo();
+    if (main && main.paused) {
+        main.play().catch(e => console.log("Reels Party: Auto-play bloqué par le navigateur", e));
+    }
+    setTimeout(() => isProgrammaticAction = false, 500);
+  }
+
+  // --- RECEPTION DES ORDRES MANUELS PLAY/PAUSE DES AUTRES ---
+  if (message.type === 'FORCE_PAUSE') {
+    console.log("Reels Party: Ordre de PAUSE reçu des autres membres.");
+    isProgrammaticAction = true;
     document.querySelectorAll('video').forEach(v => {
-      if (v.paused) {
-         v.play().catch(e => console.log("Reels Party: Auto-play bloqué par le navigateur", e));
-      }
+      if (!v.paused) v.pause();
     });
+    setTimeout(() => isProgrammaticAction = false, 500);
+  }
+
+  if (message.type === 'FORCE_PLAY') {
+    console.log("Reels Party: Ordre de PLAY reçu des autres membres.");
+    if (!isWaitingForOthers) { // On ne relance pas si on est encore en chargement synchro global
+      isProgrammaticAction = true;
+      const main = findMainVideo();
+      if (main && main.paused) {
+          main.play().catch(e => console.log(e));
+      }
+      setTimeout(() => isProgrammaticAction = false, 500);
+    }
   }
 });

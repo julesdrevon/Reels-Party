@@ -125,6 +125,24 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Nouveau: Quelqu'un (Host ou Guest) a mis la vidéo en pause manuellement
+  socket.on('sync_pause', ({ roomCode }) => {
+    const room = rooms[roomCode];
+    if (room) {
+      console.log(`Room ${roomCode} | PAUSE demandee par ${socket.id}`);
+      socket.to(roomCode).emit('do_pause');
+    }
+  });
+
+  // Nouveau: Quelqu'un (Host ou Guest) a repris la lecture manuellement
+  socket.on('sync_play', ({ roomCode }) => {
+    const room = rooms[roomCode];
+    if (room) {
+      console.log(`Room ${roomCode} | PLAY demande par ${socket.id}`);
+      socket.to(roomCode).emit('do_play');
+    }
+  });
+
   socket.on('disconnect', () => {
     console.log(`Deconnexion: ${socket.id}`);
     // Nettoyage / gestion de la deconnexion (surtout si le host part)
