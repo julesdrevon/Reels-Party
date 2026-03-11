@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Reels Party</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      width: 250px;
+      padding: 15px;
+      margin: 0;
+      background: #121212;
+      color: #ffffff;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: center;
+    }
+    h2 { margin: 0; font-size: 1.2rem; color: #ff0050; }
+    p { margin: 0; font-size: 0.9rem; text-align: center; }
+    button {
+      background: #ff0050;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      padding: 10px;
+      cursor: pointer;
+      font-weight: bold;
+      width: 100%;
+      transition: background 0.3s;
+    }
+    button:hover { background: #d00040; }
+    button:disabled { background: #555; cursor: not-allowed; }
+    input {
+      padding: 8px;
+      border-radius: 5px;
+      border: 1px solid #444;
+      background: #222;
+      color: white;
+      width: calc(100% - 18px); /* padding base */
+      text-align: center;
+      font-weight: bold;
+    }
+    .hidden { display: none !important; }
+    .status-badge {
+      font-size: 0.8rem;
+      padding: 3px 8px;
+      border-radius: 12px;
+      background: #333;
+    }
+    .status-badge.connected { background: #00c853; }
+    .status-badge.disconnected { background: #d50000; }
+    
+    #room-info {
+        background: #222;
+        padding: 10px;
+        border-radius: 8px;
+        width: calc(100% - 20px);
+        text-align: center;
+    }
+    .code-display {
+        font-size: 1.5rem;
+        font-weight: bold;
+        letter-spacing: 2px;
+        color: #ff0050;
+        margin: 5px 0;
+    }
+  </style>
+</head>
+<body>
+  <h2>Reels Party 🍿</h2>
+  <span id="connection-status" class="status-badge disconnected">Déconnecté</span>
+
+  <!-- Action : Créer une room ou Rejoindre -->
+  <div id="actions-container" style="width: 100%; display: flex; flex-direction: column; gap: 10px;">
+    <button id="btn-create">Créer une Room (Host)</button>
+    <div style="text-align: center; color: #888;">Ou</div>
+    <input type="text" id="input-code" placeholder="Code (ex: AB12C3)" maxlength="6">
+    <button id="btn-join">Rejoindre (Guest)</button>
+  </div>
+
+  <!-- État de la room -->
+  <div id="room-info" class="hidden">
+    <p id="role-text" style="color: #aaa;"></p>
+    <p>Code de la room :</p>
+    <div class="code-display" id="display-code">------</div>
+    <button id="btn-leave" style="background:#444; margin-top: 10px;">Quitter</button>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
