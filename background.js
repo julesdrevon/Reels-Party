@@ -1,7 +1,7 @@
 importScripts('socket.io.min.js');
 
 let socket = null;
-const SERVER_URL = 'http://localhost:9421'; // Modifiez cette URL en production (ex: 'https://monServeurReels.fr:9421')
+const SERVER_URL = 'https://reelsparty.frohub.eu'; // URL du serveur en production
 
 // Etat de l'extension
 let state = {
