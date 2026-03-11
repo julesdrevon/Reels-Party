@@ -111,6 +111,27 @@ function findMainVideo() {
   return mainVideo;
 }
 
+// Fonction pour simuler un clic sur le bouton "Mute/Unmute" natif d'Instagram (React override)
+function applyInstagramMuteState(desiredMuted) {
+    if (!window.location.hostname.includes('instagram.com')) return;
+
+    // Cherche tous les SVG d'Instagram pour trouver celui du volume
+    const svgs = Array.from(document.querySelectorAll('svg[aria-label]'));
+    let muteBtn = svgs.find(svg => svg.getAttribute('aria-label').toLowerCase().includes('son est coupé') || svg.getAttribute('aria-label').toLowerCase().includes('mute'));
+    let unmuteBtn = svgs.find(svg => svg.getAttribute('aria-label').toLowerCase().includes('son est activé') || svg.getAttribute('aria-label').toLowerCase().includes('audio'));
+    
+    // Si on veut MUTE et que le bouton visible est "Unmute/Son activé", on clique dessus
+    if (desiredMuted && unmuteBtn) {
+        console.log("Reels Party: Simulation clic pour MUTER Instagram");
+        unmuteBtn.closest('div[role="button"]').click();
+    } 
+    // Si on veut UNMUTE et que le bouton visible est "Mute/Son coupé", on clique dessus
+    else if (!desiredMuted && muteBtn) {
+        console.log("Reels Party: Simulation clic pour DEMUTER Instagram");
+        muteBtn.closest('div[role="button"]').click();
+    }
+}
+
 function observeVideo() {
   isWaitingForOthers = true;
   currentVideo = null;
@@ -148,8 +169,17 @@ function observeVideo() {
       try {
         const savedMuted = localStorage.getItem('reelsParty_muted');
         const savedVolume = localStorage.getItem('reelsParty_volume');
-        if (savedMuted !== null) video.muted = savedMuted === 'true';
         if (savedVolume !== null) video.volume = parseFloat(savedVolume);
+        
+        // Sur Instagram, modifier video.muted ne met pas a jour l'interface (React l'ecrase)
+        // On doit simuler un vrai clic sur le bouton de volume d'Instagram
+        if (savedMuted !== null) {
+           const shouldBeMuted = savedMuted === 'true';
+           applyInstagramMuteState(shouldBeMuted);
+           // On applique aussi au tag natif au cas ou ce n'est pas Insta
+           video.muted = shouldBeMuted; 
+        }
+
       } catch (e) {
         console.warn("Reels Party: Impossible de restaurer le son", e);
       }
