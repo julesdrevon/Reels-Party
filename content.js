@@ -2,8 +2,15 @@ let lastReportedUrl = location.href;
 let currentVideo = null;
 let isWaitingForOthers = false;
 
+// Fonction de survie: verifier si l'extension a ete rafraichie
+function isContextValid() {
+  return chrome.runtime && !!chrome.runtime.id;
+}
+
 // 1. Détecter les changements d'URL sans rechargement de page (SPA)
 function reportUrlChange() {
+  if (!isContextValid()) return; // On stoppe tout si le contexte est mort
+
   const newUrl = location.href;
   if(newUrl !== lastReportedUrl) {
     lastReportedUrl = newUrl;
@@ -35,6 +42,7 @@ history.replaceState = function() {
 window.addEventListener('popstate', reportUrlChange);
 
 setInterval(() => {
+  if (!isContextValid()) return; // Stoppe le check periodique si le context est mort
   if (location.href !== lastReportedUrl) {
     reportUrlChange();
   }
@@ -42,29 +50,71 @@ setInterval(() => {
 
 // --- LOGIQUE DE LECTURE ET PAUSE SYNCHRONISÉE ---
 
+// Bloqueur global : empêche toute vidéo de démarrer si on attend les autres
+// On utilise `useCapture = true` pour intercepter l'évènement avant qu'il n'atteigne React/Instagram
+document.addEventListener('play', (e) => {
+  if (isWaitingForOthers && isContextValid() && e.target.tagName === 'VIDEO') {
+    e.target.pause();
+    console.log("Reels Party: Action de lecture interceptée et bloquée globalement.");
+  }
+}, true);
+
 function findMainVideo() {
   const videos = Array.from(document.querySelectorAll('video'));
-  return videos.find(v => v.readyState > 0 && v.offsetParent !== null) || videos[0];
+  if (videos.length === 0) return null;
+
+  // Trouver la vidéo qui occupe le plus d'espace à l'écran (très utile sur Insta qui a 3 vidéos pré-chargées)
+  let maxArea = 0;
+  let mainVideo = videos[0];
+  
+  videos.forEach(v => {
+    const rect = v.getBoundingClientRect();
+    const visibleWidth = Math.max(0, Math.min(rect.right, window.innerWidth) - Math.max(rect.left, 0));
+    const visibleHeight = Math.max(0, Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0));
+    const area = visibleWidth * visibleHeight;
+    
+    // Ignore les vidéos de moins de 100x100 de visibilité ou celles qui ne sont pas prêtes
+    if (area > maxArea && v.readyState > 0 && v.offsetParent !== null) {
+      maxArea = area;
+      mainVideo = v;
+    }
+  });
+  
+  return mainVideo;
 }
 
 function observeVideo() {
   isWaitingForOthers = true;
   currentVideo = null;
 
+  // Coup de marteau immédiat sur les vidéos actuellement actives
+  document.querySelectorAll('video').forEach(v => {
+    if (!v.paused) v.pause();
+  });
+
   const checkInterval = setInterval(() => {
+    if (!isContextValid()) {
+      clearInterval(checkInterval);
+      return;
+    }
+
+    // Sécurité supplémentaire : on force la pause de tout en boucle pendant l'attente
+    if (isWaitingForOthers && isContextValid()) {
+      document.querySelectorAll('video').forEach(v => {
+        if (!v.paused) v.pause();
+      });
+    } else {
+        // Si on n'attend plus, on arrête de scruter agressivement
+        clearInterval(checkInterval);
+        return;
+    }
+
     const video = findMainVideo();
     if (video && video !== currentVideo) {
       currentVideo = video;
       clearInterval(checkInterval);
 
-      console.log("Reels Party: Vidéo trouvée. Mise en pause...");
-      video.pause();
-      
-      const enforcePause = () => {
-        if (isWaitingForOthers) video.pause();
-      };
-      
-      video.addEventListener('play', enforcePause);
+      console.log("Reels Party: Vidéo principale identifiée. Prêt envoyé au serveur.");
       
       // On informe le serveur qu'on est prêt
       try {
@@ -72,15 +122,8 @@ function observeVideo() {
       } catch (e) {
           console.warn("Reels Party: Erreur context au moment du prèt", e);
       }
-      
-      const cleanup = setInterval(() => {
-        if (!isWaitingForOthers || currentVideo !== video) {
-          video.removeEventListener('play', enforcePause);
-          clearInterval(cleanup);
-        }
-      }, 1000);
     }
-  }, 500);
+  }, 300);
 }
 
 // Initialisation au chargement
@@ -92,53 +135,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'GOTO_URL') {
     if (location.href !== message.url) {
       console.log('Reels Party: Demande de changement de vidéo ->', message.url);
-
-      // Simulation de la touche Flèche du bas (ArrowDown)
-      // La plupart des plateformes (YT Shorts, Tiktok, Insta Reels) ecoutent cette touche
-      // pour passer a la video suivante grance a leur propre logique de SPA
-      let direction = 'ArrowDown'; // Simplification: on assume qu'on avance
       
-      console.log("Reels Party: Simulation de la touche " + direction + "...");
+      console.log("Reels Party: Redirection propre en cours vers la position de l'Hôte...");
       
-      const arrowEvent = new KeyboardEvent('keydown', {
-          key: direction,
-          code: direction,
-          keyCode: 40,
-          which: 40,
-          bubbles: true,
-          cancelable: true
-      });
-      
-      document.dispatchEvent(arrowEvent);
-      
-      // On verifie si l'URL a bien change apres un petit delai
-      setTimeout(() => {
-        if (location.href !== message.url) {
-            console.log("Reels Party: La simulation de touche a echoue. Redirection SPA...");
-            // Navigation de secours (marche pour YT Shorts souvent)
-            history.pushState(null, '', message.url);
-            window.dispatchEvent(new Event('popstate'));
-            
-            setTimeout(() => {
-              if (location.href !== message.url) {
-                  console.log("Reels Party: La navigation SPA a echoue. Rechargement complet.");
-                  window.location.replace(message.url);
-              } else {
-                  observeVideo();
-              }
-            }, 800);
-        } else {
-            observeVideo();
-        }
-      }, 1000);
+      // La navigation via l'historique ou le DOM de React est bloquee ou instable sur ces sites.
+      // Un rechargement est la maniere la plus fiable de synchroniser l'invite.
+      window.location.assign(message.url);
     }
   }
 
   if (message.type === 'PLAY_VIDEO') {
     console.log("Reels Party: Autorisation de lecture reçue !");
-    isWaitingForOthers = false;
-    if (currentVideo) {
-      currentVideo.play().catch(e => console.log("Reels Party: Auto-play bloqué", e));
-    }
+    isWaitingForOthers = false; // Désactive immédiatement le bouclier global
+    
+    // On force la lecture sur TOUTES les vidéos (la vidéo principale prendra le relai naturellement)
+    document.querySelectorAll('video').forEach(v => {
+      if (v.paused) {
+         v.play().catch(e => console.log("Reels Party: Auto-play bloqué par le navigateur", e));
+      }
+    });
   }
 });

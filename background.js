@@ -1,7 +1,7 @@
 importScripts('socket.io.min.js');
 
 let socket = null;
-const SERVER_URL = 'http://localhost:3000'; // Adresse du serveur NodeJS local
+const SERVER_URL = 'http://localhost:9421'; // Modifiez cette URL en production (ex: 'https://monServeurReels.fr:9421')
 
 // Etat de l'extension
 let state = {

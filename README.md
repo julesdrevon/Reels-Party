@@ -20,7 +20,7 @@ L'extension a besoin d'un petit serveur local pour permettre aux utilisateurs de
    ```bash
    npm start
    ```
-   *Tu devrais voir le message : `Serveur Socket.io demarre sur le port 3000`.*
+   *Tu devrais voir le message : `Serveur Socket.io demarre sur le port 9421`.*
    Laisse ce terminal ouvert pendant que tu utilises l'extension !
 
 ## 2. Installer l'Extension Chrome

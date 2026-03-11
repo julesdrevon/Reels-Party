@@ -14,7 +14,7 @@ const io = new Server(server, {
   }
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 9421;
 
 // Objet en memoire pour stocker l'etat des rooms
 const rooms = {};
