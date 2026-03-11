@@ -8,7 +8,14 @@
     "default_icon": "reels_party_icon.png"
   },
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "scripts": ["background.js"]
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "reelsparty@frohub.eu",
+      "strict_min_version": "109.0"
+    }
   },
   "permissions": [
     "tabs",
