@@ -11,6 +11,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const roleText = document.getElementById('role-text');
   const usersList = document.getElementById('users-list');
   const connectionStatus = document.getElementById('connection-status');
+  
+  // Settings
+  const settingsToggle = document.getElementById('settings-toggle');
+  const settingsPanel = document.getElementById('settings-panel');
+  const serverSelect = document.getElementById('server-select');
+  const customServerUrl = document.getElementById('custom-server-url');
+  const btnSaveSettings = document.getElementById('btn-save-settings');
 
   // Met a jour l'affichage selon l'etat
   function updateUI(state) {
@@ -25,9 +32,21 @@ document.addEventListener('DOMContentLoaded', () => {
       btnCreate.disabled = true;
       btnJoin.disabled = true;
     }
+    
+    // MAJ Settings Data
+    if (state.serverType === 'custom') {
+       serverSelect.value = 'custom';
+       customServerUrl.classList.remove('hidden');
+       if (state.customServerUrl && !customServerUrl.value) customServerUrl.value = state.customServerUrl;
+    } else {
+       serverSelect.value = 'official';
+       customServerUrl.classList.add('hidden');
+    }
 
     if (state.inRoom) {
       actionsContainer.classList.add('hidden');
+      settingsToggle.classList.add('hidden');
+      settingsPanel.classList.add('hidden');
       roomInfo.classList.remove('hidden');
       displayCode.textContent = state.roomCode;
       roleText.textContent = state.isHost ? "Vous êtes l'Hôte 👑" : "Vous êtes Invité 🍿";
@@ -46,6 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     } else {
       actionsContainer.classList.remove('hidden');
+      settingsToggle.classList.remove('hidden');
       roomInfo.classList.add('hidden');
       displayCode.textContent = "------";
       
@@ -78,7 +98,40 @@ document.addEventListener('DOMContentLoaded', () => {
      chrome.runtime.sendMessage({ type: 'SET_USERNAME', username: val }, callback);
   }
 
-  // Actions
+  // --- ACTIONS SETTINGS ---
+  settingsToggle.addEventListener('click', () => {
+     settingsPanel.classList.toggle('hidden');
+  });
+
+  serverSelect.addEventListener('change', (e) => {
+     if (e.target.value === 'custom') {
+        customServerUrl.classList.remove('hidden');
+     } else {
+        customServerUrl.classList.add('hidden');
+     }
+  });
+
+  btnSaveSettings.addEventListener('click', () => {
+     const isCustom = serverSelect.value === 'custom';
+     let url = customServerUrl.value.trim();
+     
+     if (isCustom && (!url.startsWith('http://') && !url.startsWith('https://'))) {
+        alert("L'URL doit commencer par http:// ou https://");
+        return;
+     }
+
+     chrome.runtime.sendMessage({ 
+         type: 'UPDATE_SERVER_URL', 
+         serverType: serverSelect.value, 
+         customUrl: url 
+     });
+     
+     settingsPanel.classList.add('hidden');
+     connectionStatus.textContent = "Reconnexion...";
+     connectionStatus.className = "status-badge";
+  });
+
+  // Actions Room
   btnCreate.addEventListener('click', () => {
     setUsername(() => {
        chrome.runtime.sendMessage({ type: 'CREATE_ROOM' });

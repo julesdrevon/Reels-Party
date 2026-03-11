@@ -1,7 +1,7 @@
 importScripts('socket.io.min.js');
 
 let socket = null;
-const SERVER_URL = 'https://reelsparty.frohub.eu'; // URL du serveur en production
+const SERVER_URL_OFFICIAL = 'https://reelsparty.frohub.eu'; 
 
 // Etat de l'extension
 let state = {
@@ -11,20 +11,31 @@ let state = {
   isHost: false,
   currentUrl: null,
   username: "",
-  users: [] // Liste des membres de la room
+  users: [], // Liste des membres de la room
+  serverType: "official",
+  customServerUrl: ""
 };
 
-// Charge le pseudo sauvegarde au demarrage
-chrome.storage.local.get(['reelsParty_username'], (res) => {
-  if (res.reelsParty_username) {
-    state.username = res.reelsParty_username;
-  }
+// Charge le pseudo et les configs serveur au demarrage
+chrome.storage.local.get(['reelsParty_username', 'reelsParty_serverType', 'reelsParty_customUrl'], (res) => {
+  if (res.reelsParty_username) state.username = res.reelsParty_username;
+  if (res.reelsParty_serverType) state.serverType = res.reelsParty_serverType;
+  if (res.reelsParty_customUrl) state.customServerUrl = res.reelsParty_customUrl;
+  
+  connectSocket();
 });
 
 // Initialise la connexion Socket
 function connectSocket() {
   if (socket) return;
-  socket = io(SERVER_URL, {
+  
+  const targetUrl = state.serverType === 'custom' && state.customServerUrl 
+                    ? state.customServerUrl 
+                    : SERVER_URL_OFFICIAL;
+                    
+  console.log("Tentative de connexion au serveur :", targetUrl);
+
+  socket = io(targetUrl, {
     transports: ['websocket'], // Force websocket pour les extensions (evite xhr long polling)
   });
 
@@ -111,6 +122,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   // --- ACTIONS POPUP ---
+  if (message.type === 'UPDATE_SERVER_URL') {
+    state.serverType = message.serverType;
+    if (message.customUrl) state.customServerUrl = message.customUrl;
+    
+    chrome.storage.local.set({ 
+        reelsParty_serverType: state.serverType,
+        reelsParty_customUrl: state.customServerUrl
+    });
+
+    if (socket) {
+        socket.disconnect();
+        socket = null;
+    }
+    connectSocket();
+    broadcastState();
+    return true;
+  }
+
   if (message.type === 'SET_USERNAME') {
     state.username = message.username;
     chrome.storage.local.set({ reelsParty_username: message.username });
@@ -200,6 +229,3 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
 });
-
-// Init
-connectSocket();
