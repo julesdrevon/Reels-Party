@@ -1,0 +1,91 @@
+/* Container principal en bas a droite */
+#reels-party-overlay {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 999999;
+  display: flex;
+  flex-direction: row-reverse;
+  gap: 10px;
+  align-items: center;
+  font-family: 'Segoe UI', sans-serif;
+  pointer-events: auto;
+}
+
+/* Bulle individuelle d'un utilisateur */
+.rp-user-bubble {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #262626;
+  color: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-weight: bold;
+  font-size: 16px;
+  text-transform: uppercase;
+  position: relative;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+  border: 2px solid transparent;
+  transition: all 0.3s ease;
+  cursor: help;
+}
+
+/* Couleurs de statut autour de la bulle */
+.rp-user-bubble.ready {
+  border-color: #00e676; /* Vert Fluo */
+  box-shadow: 0 0 10px rgba(0, 230, 118, 0.4);
+}
+.rp-user-bubble.loading {
+  border-color: #ff3d00; /* Orange/Rouge Fluo */
+  opacity: 0.7;
+  animation: rp-pulse 1.5s infinite;
+}
+
+/* Clignotement de chargement */
+@keyframes rp-pulse {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 61, 0, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(255, 61, 0, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 61, 0, 0); }
+}
+
+/* Tooltip (Affichage du nom au survol) */
+.rp-user-bubble::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  top: -35px;
+  white-space: nowrap;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s, visibility 0.2s;
+  pointer-events: none;
+  text-transform: none;
+  font-weight: normal;
+}
+
+.rp-user-bubble:hover::after {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Couronne pour l'hote */
+.rp-host-crown {
+  position: absolute;
+  top: -8px;
+  right: -5px;
+  font-size: 14px;
+  background: #ffeb3b; /* Jaune or */
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}

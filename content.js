@@ -255,4 +255,52 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       setTimeout(() => isProgrammaticAction = false, 500);
     }
   }
+
+  // --- RECEPTION DE L'ÉTAT SERVEUR (UI) ---
+  if (message.type === 'STATE_UPDATE') {
+    renderUsersHUD(message.state);
+  }
 });
+
+// Demande l'état initial pour l'UI
+chrome.runtime.sendMessage({ type: 'GET_STATE' }, (state) => {
+   if (state) renderUsersHUD(state);
+});
+
+// -- FONCTION DE RENDU UI (HUD) --
+function renderUsersHUD(state) {
+  let overlay = document.getElementById('reels-party-overlay');
+  
+  if (!state.inRoom || !state.users || state.users.length === 0) {
+    if (overlay) overlay.remove();
+    return;
+  }
+
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'reels-party-overlay';
+    document.body.appendChild(overlay);
+  }
+
+  // Vider et reconstruire
+  overlay.innerHTML = '';
+
+  state.users.forEach(u => {
+    const bubble = document.createElement('div');
+    bubble.className = `rp-user-bubble ${u.isReady ? 'ready' : 'loading'}`;
+    bubble.setAttribute('data-tooltip', u.username);
+    
+    // Initiale (1 ou 2 lettres max)
+    const initial = u.username.substring(0, 2).toUpperCase();
+    bubble.textContent = initial;
+
+    if (u.isHost) {
+       const crown = document.createElement('span');
+       crown.className = 'rp-host-crown';
+       crown.textContent = '👑';
+       bubble.appendChild(crown);
+    }
+
+    overlay.appendChild(bubble);
+  });
+}

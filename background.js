@@ -9,8 +9,17 @@ let state = {
   inRoom: false,
   roomCode: null,
   isHost: false,
-  currentUrl: null
+  currentUrl: null,
+  username: "",
+  users: [] // Liste des membres de la room
 };
+
+// Charge le pseudo sauvegarde au demarrage
+chrome.storage.local.get(['reelsParty_username'], (res) => {
+  if (res.reelsParty_username) {
+    state.username = res.reelsParty_username;
+  }
+});
 
 // Initialise la connexion Socket
 function connectSocket() {
@@ -37,8 +46,14 @@ function connectSocket() {
     console.log('Le Host a quitté la room.');
     state.inRoom = false;
     state.roomCode = null;
+    state.users = [];
     broadcastState();
     // TODO: notifier le content script si on veut afficher une alert() au guest
+  });
+
+  socket.on('room_users', (usersList) => {
+    state.users = usersList;
+    broadcastState();
   });
 
   socket.on('new_url', (data) => {
@@ -91,8 +106,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   // --- ACTIONS POPUP ---
+  if (message.type === 'SET_USERNAME') {
+    state.username = message.username;
+    chrome.storage.local.set({ reelsParty_username: message.username });
+    broadcastState();
+    sendResponse({ success: true });
+    return true;
+  }
+
   if (message.type === 'CREATE_ROOM') {
-    socket.emit('create_room', (res) => {
+    socket.emit('create_room', state.username, (res) => {
       if (res.success) {
         state.inRoom = true;
         state.isHost = true;
@@ -104,7 +127,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === 'JOIN_ROOM') {
-    socket.emit('join_room', message.roomCode, (res) => {
+    socket.emit('join_room', { roomCode: message.roomCode, username: state.username }, (res) => {
       if (res.success) {
         state.inRoom = true;
         state.isHost = res.isHost;
@@ -134,6 +157,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     state.inRoom = false;
     state.roomCode = null;
     state.isHost = false;
+    state.users = [];
     socket = null;
     connectSocket(); // Reconnect for a clean slate
     broadcastState();

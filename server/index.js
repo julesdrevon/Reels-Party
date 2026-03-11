@@ -18,6 +18,38 @@ const PORT = process.env.PORT || 9421;
 
 // Objet en memoire pour stocker l'etat des rooms
 const rooms = {};
+// Stockage global des identites (socket.id -> pseudo)
+const socketUserNames = {};
+
+// Helper pour envoyer la liste des utilisateurs a la room
+function broadcastRoomUsers(roomCode) {
+  const room = rooms[roomCode];
+  if (!room) return;
+
+  const usersList = [];
+  
+  // Ajouter le host
+  if (room.host) {
+    usersList.push({
+      id: room.host,
+      username: socketUserNames[room.host] || "Host",
+      isHost: true,
+      isReady: room.readyUsers.includes(room.host)
+    });
+  }
+  
+  // Ajouter les guests
+  room.guests.forEach(guestId => {
+    usersList.push({
+      id: guestId,
+      username: socketUserNames[guestId] || "Guest",
+      isHost: false,
+      isReady: room.readyUsers.includes(guestId)
+    });
+  });
+
+  io.to(roomCode).emit('room_users', usersList);
+}
 
 // Generateur de codes pour les rooms (ex: 6 caracteres alpha-numeriques)
 function generateRoomCode() {
@@ -33,7 +65,8 @@ io.on('connection', (socket) => {
   console.log(`Nouvelle connexion: ${socket.id}`);
 
   // Hote cree une room
-  socket.on('create_room', (callback) => {
+  socket.on('create_room', (username, callback) => {
+    socketUserNames[socket.id] = username || "Host anonyme";
     const roomCode = generateRoomCode();
     
     // Initialise la room
@@ -45,14 +78,16 @@ io.on('connection', (socket) => {
     };
 
     socket.join(roomCode);
-    console.log(`Room ${roomCode} cree par ${socket.id}`);
+    console.log(`Room ${roomCode} cree par ${socketUserNames[socket.id]}`);
     
     // Renvoie le code a l'hote
     if (callback) callback({ success: true, roomCode });
+    broadcastRoomUsers(roomCode);
   });
 
   // Hote ou Guest rejoint une room
-  socket.on('join_room', (roomCode, callback) => {
+  socket.on('join_room', ({ roomCode, username }, callback) => {
+    socketUserNames[socket.id] = username || "Guest anonyme";
     const room = rooms[roomCode];
     
     if (!room) {
@@ -66,7 +101,7 @@ io.on('connection', (socket) => {
       room.guests.push(socket.id);
     }
 
-    console.log(`Utilisateur ${socket.id} a rejoint la room ${roomCode}`);
+    console.log(`Utilisateur ${socketUserNames[socket.id]} a rejoint la room ${roomCode}`);
     
     // Informe l'utilisateur du succes et lui donne l'URL courante si elle existe
     if (callback) callback({ 
@@ -75,8 +110,7 @@ io.on('connection', (socket) => {
       currentUrl: room.currentUrl 
     });
 
-    // Optionnel: informer le host qu'un guest a rejoint
-    socket.to(room.host).emit('guest_joined', { guestId: socket.id });
+    broadcastRoomUsers(roomCode);
   });
 
   // Host envoie la nouvelle URL a ses guests
@@ -100,6 +134,7 @@ io.on('connection', (socket) => {
 
     // Diffuse a tous les memebres de la room SAUF l'emetteur (l'hote)
     socket.to(roomCode).emit('new_url', { url });
+    broadcastRoomUsers(roomCode);
     
     if (callback) callback({ success: true });
   });
@@ -122,6 +157,7 @@ io.on('connection', (socket) => {
         console.log(`Tous prêts dans la room ${roomCode}. Broadcast de PLAY_ALL.`);
         io.to(roomCode).emit('play_all');
       }
+      broadcastRoomUsers(roomCode);
     }
   });
 
@@ -148,20 +184,27 @@ io.on('connection', (socket) => {
     // Nettoyage / gestion de la deconnexion (surtout si le host part)
     for (const roomCode in rooms) {
       const room = rooms[roomCode];
+      
+      let changed = false;
+
       if (room.host === socket.id) {
         // Le host est parti, on peut informer les guests et detruire la room
         socket.to(roomCode).emit('host_left');
         delete rooms[roomCode];
+        changed = true;
+      } else {
         // Un guest est parti, on l'enleve de la liste
         const index = room.guests.indexOf(socket.id);
         if (index !== -1) {
           room.guests.splice(index, 1);
+          changed = true;
         }
         
         // On l'enlève des readyUsers s'il y était
         const readyIndex = room.readyUsers.indexOf(socket.id);
         if (readyIndex !== -1) {
           room.readyUsers.splice(readyIndex, 1);
+          changed = true;
         }
         
         // On revérifie si les utilisateurs restants sont tous prêts
@@ -170,7 +213,12 @@ io.on('connection', (socket) => {
            io.to(roomCode).emit('play_all');
         }
       }
+
+      if (changed && rooms[roomCode]) {
+         broadcastRoomUsers(roomCode);
+      }
     }
+    delete socketUserNames[socket.id];
   });
 });
 

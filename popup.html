@@ -65,6 +65,31 @@
         color: #ff0050;
         margin: 5px 0;
     }
+    #users-list {
+        margin-top: 15px;
+        text-align: left;
+        background: #111;
+        border-radius: 5px;
+        padding: 5px;
+        max-height: 120px;
+        overflow-y: auto;
+    }
+    .user-item {
+        padding: 5px;
+        font-size: 0.85rem;
+        border-bottom: 1px solid #333;
+        display: flex;
+        justify-content: space-between;
+    }
+    .user-item:last-child { border-bottom: none; }
+    .status-dot {
+        height: 10px;
+        width: 10px;
+        border-radius: 50%;
+        display: inline-block;
+        background: #f44336; /* Rouge = Pas pret */
+    }
+    .status-dot.ready { background: #4caf50; /* Vert = Pret */ }
   </style>
 </head>
 <body>
@@ -73,6 +98,7 @@
 
   <!-- Action : Créer une room ou Rejoindre -->
   <div id="actions-container" style="width: 100%; display: flex; flex-direction: column; gap: 10px;">
+    <input type="text" id="input-username" placeholder="Votre pseudo" maxlength="15" autocomplete="off">
     <button id="btn-create">Créer une Room (Host)</button>
     <div style="text-align: center; color: #888;">Ou</div>
     <input type="text" id="input-code" placeholder="Code (ex: AB12C3)" maxlength="6">
@@ -84,6 +110,7 @@
     <p id="role-text" style="color: #aaa;"></p>
     <p>Code de la room :</p>
     <div class="code-display" id="display-code">------</div>
+    <div id="users-list"></div>
     <button id="btn-leave" style="background:#444; margin-top: 10px;">Quitter</button>
   </div>
 
