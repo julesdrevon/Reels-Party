@@ -23,14 +23,22 @@ L'extension a besoin d'un petit serveur local pour permettre aux utilisateurs de
    *Tu devrais voir le message : `Serveur Socket.io demarre sur le port 9421`.*
    Laisse ce terminal ouvert pendant que tu utilises l'extension !
 
-## 2. Installer l'Extension Chrome
+## 2. Installer l'Extension Chrome / Edge
 
 1. Ouvre Google Chrome et tape `chrome://extensions/` dans la barre d'adresse.
 2. Active le **Mode développeur** (en haut à droite).
 3. Clique sur **Charger l'extension non empaquetée**.
-4. Sélectionne le dossier complet de ce projet (`tutorial.hello-world`).
+4. Sélectionne le dossier complet de ce projet (`ReelsParty_Extension`).
 
-## 3. Comment l'utiliser
+## 3. Installer l'Extension Firefox
+
+Contrairement à Chrome, Firefox impose de charger l'extension sous forme d'archive compressée (`.zip`).
+1. Fais un **Clic droit** sur le fichier `build-firefox.ps1` inclus dans ce dossier, puis choisis **Exécuter avec PowerShell**.
+2. Un fichier `reels-party-firefox.zip` va se créer à côté du dossier.
+3. Ouvre Firefox et tape `about:debugging#/runtime/this-firefox` dans la barre d'adresse.
+4. Clique sur **Charger un module temporaire...** et sélectionne le fichier `reels-party-firefox.zip`.
+
+## 4. Comment l'utiliser
 
 1. Épingles l'extension "Reels Party" dans ta barre Chrome.
 2. **Si tu es l'Hôte :** Ouvre une vidéo (ex: Instagram Reels), clique sur l'extension et fais "Créer une Room". Donne le code de 6 lettres à ton ami.
